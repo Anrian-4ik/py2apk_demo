@@ -1,5 +1,6 @@
 name: CI
-on: # rfr
+
+on:
   push:
     branches: [ main ]
   pull_request:
@@ -10,37 +11,42 @@ on: # rfr
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # used to cache dependencies with a timeout
+      # Получаем дату для ключа кэша (современный способ через $GITHUB_OUTPUT)
       - name: Get Date
         id: get-date
         run: |
-          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+          echo "date=$(date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
         shell: bash
 
+      # Кэш глобального каталога Buildozer
       - name: Cache Buildozer global directory
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
 
-      - uses: actions/cache@v2
+      # Кэш локальной сборки
+      - name: Cache Buildozer directory
+        uses: actions/cache@v3
         with:
           path: .buildozer
           key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
 
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
+      # Сборка через action (обновили версию и исправили команду)
+      - name: Build with Buildozer Action
+        uses: ArtemSBulgakov/buildozer-action@v2
         id: buildozer
         with:
           command: buildozer android debug
           buildozer_version: master
 
+      # Загрузка артефакта (актуальная версия)
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: ${{ steps.buildozer.outputs.filename }}
