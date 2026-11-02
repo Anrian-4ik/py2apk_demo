@@ -37,8 +37,9 @@ jobs:
           key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
 
       # Сборка через action (обновили версию и исправили команду)
+
       - name: Build with Buildozer Action
-        uses: ArtemSBulgakov/buildozer-action@v2
+        uses: ArtemSBulgakov/buildozer-action@v1  # Было @v2 — меняем на @v1
         id: buildozer
         with:
           command: buildozer android debug
