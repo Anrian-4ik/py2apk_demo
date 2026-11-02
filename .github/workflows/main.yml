@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [ main ]
@@ -11,60 +10,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      # Получаем дату для ключа кэша
+    steps:
+      - uses: actions/checkout@v2
+
+      # used to cache dependencies with a timeout
       - name: Get Date
         id: get-date
         run: |
-          echo "date=$(date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
         shell: bash
 
-      # Кэшируем зависимости (опционально, можно убрать, если хочешь 100% чистоты)
       - name: Cache Buildozer global directory
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
           path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
 
-      - name: Cache Buildozer directory
-        uses: actions/cache@v3
+      - uses: actions/cache@v2
         with:
           path: .buildozer
           key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
 
-      # Установка системных зависимостей (то, что раньше пряталось в Dockerfile экшена)
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev \
-            libncurses5-dev libreadline-dev libsqlite3-dev wget curl llvm \
-            libncursesw5-dev build-essential zip unzip
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: master
 
-      # Ставим Buildozer и Cython (обязательно фиксируем версию Cython)
-      - name: Install Buildozer and Cython
-        run: pip install buildozer cython==0.29.33
-
-      # ВАЖНО: если кэш может хранить старые сломанные настройки — сбрасываем его
-      # Если хочешь использовать кэш для скорости — закомментируй эту строку.
-      # Но для отладки лицензий лучше оставить.
-      - name: Clean Buildozer Cache
-        run: rm -rf ~/.buildozer
-
-      # Автоматическое принятие лицензий
-      - name: Enable auto-accept licenses
-        run: echo "BUILD_OS_ACCEPT_LICENSES=1" >> $GITHUB_ENV
-
-      # Запуск сборки напрямую (вместо проблемного экшена)
-      - name: Build APK
-        run: buildozer -v android debug
-
-      # Загрузка артефакта
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v2
         with:
           name: package
-          path: bin/*.apk
-          if-no-files-found: error
+          path: ${{ steps.buildozer.outputs.filename }}
